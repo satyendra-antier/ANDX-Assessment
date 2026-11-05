@@ -2,10 +2,16 @@
 
 Production-oriented submission: solvent `AndxEscrow`, Foundry invariants, reorg/crash-safe indexer, exactly-once claim relayer, and a security review of `LegacyPayouts`.
 
-## Quick start
+## Quick start (clean checkout)
 
 ```bash
-# Prerequisites: Docker, Node 20+, Foundry (forge/cast/anvil)
+git clone https://github.com/strangerhash/ANDX-Assessment.git
+cd ANDX-Assessment
+git submodule update --init --recursive
+
+# Prerequisites: Docker, Node 20+, Foundry (forge/cast/anvil on PATH)
+cd app && npm install && cd ..
+
 make up
 make deploy
 make seed
@@ -16,6 +22,8 @@ make down
 ```
 
 Host ports: anvil `8545`, chaos-primary `9545`, chaos-replica `9546`, Postgres `5432`.
+
+After `claim-all`, expected escrow balances: **USDX = 0**, **FOTX = 15_000_000**, **NRT = 0**.
 
 ## Architecture
 
@@ -37,28 +45,56 @@ The `app` service is a single long-running process (SIGKILL-tested). Deploy/seed
 
 ## Invariants
 
-Configured in `contracts/foundry.toml`: `runs = 256`, `depth = 100`, `show_metrics = true`.
+Configured in [`contracts/foundry.toml`](contracts/foundry.toml): `runs = 256`, `depth = 100`, `show_metrics = true`.
 
-Handlers cover: createCampaign (USDX/FOTX/NRT), honest + adversarial propose, activate, veto, direct claim, claimWithSig + replay, refund, time warps.
+Handlers: `createCampaign` (USDX/FOTX/NRT), honest + adversarial `proposeRoot`, `activate`, `veto`, direct claim, `claimWithSig` + replay, `refund`, `warpTime`.
 
 | Id | Check |
 |---|---|
 | I1 | Per-token solvency |
 | I2 | claimed ≤ active ≤ net−refunded; pending ≤ net−refunded |
 | I3 | No double-pay vs max activated cumulative |
-| I4 | Exact-equality ghost accounting vs contract |
+| I4 | Isolation / per-campaign independence |
+| exactGhost | Exact-equality ghost accounting vs contract |
 | I5 | Refunds never strand active/pending commitments |
 | I6 | Nonce single-use (replay must not succeed) |
 
-### Mutation demo
+### Latest metrics (local run)
 
-Temporarily change `AndxEscrow.claim` to skip the `claimedTotal <= activeCommitted` check, then:
+```
+EscrowInvariants invariants (runs: 256, calls: 25600, reverts: 0)
 
-```bash
-cd contracts && forge test --match-contract EscrowInvariants
+Handler | Calls
+--------|------
+activate           | 2913
+claimDirect        | 2786
+claimWithSigReplay | 2777
+createCampaign     | 2839
+proposeAdversarial | 2919
+proposeHonest      | 2893
+refund             | 2850
+veto               | 2768
+warpTime           | 2855
 ```
 
-Invariant I2 (and typically I1) fails. Revert the mutation before submitting. This demonstrates the suite is not vacuously green.
+All listed selectors are exercised every run (claims / activations / refunds / adversarial proposes included).
+
+### Mutation demo
+
+Temporarily comment out both `ClaimedExceedsCommitted` checks in `AndxEscrow` claim paths, then:
+
+```bash
+cd contracts && forge test --match-test test_claimedTotalCannotExceedActiveCommitted -vv
+```
+
+Observed failure (then restore the checks before submitting):
+
+```
+[FAIL: next call did not revert as expected] test_claimedTotalCannotExceedActiveCommitted()
+Suite result: FAILED. 0 passed; 1 failed
+```
+
+With the mutation present, the suite no longer enforces the commitment ceiling — proving the test is not vacuously green. **Restore the reverts before shipping.**
 
 ## Assumptions
 
@@ -67,12 +103,13 @@ Invariant I2 (and typically I1) fails. Revert the mutation before submitting. Th
 - `pendingCommitted` view equals pending proposal commitment if listed, else `activeCommitted`.
 - Relayer uses acct4; jobs are `done` only on receipt `status = 1`.
 - Deep reorgs beyond `CONFIRMATIONS = 6` are out of scope (per brief).
+- Foundry libs are git submodules under `lib/` (`forge-std`, `openzeppelin-contracts`).
 
 ## Known limitations / more time
 
 - Indexer campaign aggregation is event-sourced; would add property tests vs `eth_call` at finalized block in CI.
 - Relayer fee-bump could use EIP-1559 tips explicitly; currently legacy `gasPrice` on anvil.
-- Broader murky-style Merkle trees in invariant handlers beyond single-leaf honest claims.
+- Broader multi-leaf Merkle trees in invariant claim handlers beyond single-leaf honest claims.
 - Formal verification of commitment monotonicity.
 
 ## Deliverables

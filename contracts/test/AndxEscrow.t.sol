@@ -306,4 +306,99 @@ contract AndxEscrowTest is Test {
         vm.expectRevert(AndxEscrow.ClaimedExceedsCommitted.selector);
         escrow.claim(c, alice, proof);
     }
+
+    function test_claimWithSig_rejectsHighS() public {
+        bytes32 id = _createUsdx(1_000_000, keccak256("highs"));
+        uint256 cum = 50_000;
+        bytes32 root = _leaf(id, alice, cum);
+        bytes32[] memory ids = new bytes32[](1);
+        ids[0] = id;
+        uint256[] memory committed = new uint256[](1);
+        committed[0] = cum;
+        vm.prank(operator);
+        escrow.proposeRoot(1, root, ids, committed);
+        vm.warp(block.timestamp + ROOT_DELAY);
+        escrow.activateRoot(1);
+
+        IAndxEscrow.ClaimAuth memory auth = IAndxEscrow.ClaimAuth({
+            campaignId: id,
+            creator: alice,
+            cumulativeAmount: cum,
+            recipient: alice,
+            relayerFee: 0,
+            nonce: 1,
+            deadline: block.timestamp + 1 days
+        });
+        bytes32 digest = escrow.hashClaimAuth(auth);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(alicePk, digest);
+        // Force high-s via secp256k1 malleation (n - s). Contract rejects before ecrecover.
+        uint256 secpN = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        bytes32 sHigh = bytes32(secpN - uint256(s));
+        uint8 vFlip = v == 27 ? 28 : 27;
+        bytes memory badSig = abi.encodePacked(r, sHigh, vFlip);
+
+        bytes32[] memory proof = new bytes32[](0);
+        vm.expectRevert(AndxEscrow.BadSignature.selector);
+        escrow.claimWithSig(auth, badSig, proof);
+    }
+
+    function test_claimWithSig_rejectsGarbageSignature() public {
+        bytes32 id = _createUsdx(1_000_000, keccak256("zerosig"));
+        uint256 cum = 10_000;
+        bytes32 root = _leaf(id, alice, cum);
+        bytes32[] memory ids = new bytes32[](1);
+        ids[0] = id;
+        uint256[] memory committed = new uint256[](1);
+        committed[0] = cum;
+        vm.prank(operator);
+        escrow.proposeRoot(1, root, ids, committed);
+        vm.warp(block.timestamp + ROOT_DELAY);
+        escrow.activateRoot(1);
+
+        IAndxEscrow.ClaimAuth memory auth = IAndxEscrow.ClaimAuth({
+            campaignId: id,
+            creator: alice,
+            cumulativeAmount: cum,
+            recipient: alice,
+            relayerFee: 0,
+            nonce: 2,
+            deadline: block.timestamp + 1 days
+        });
+        // 65 zero bytes → ecrecover address(0) / invalid
+        bytes memory sig = new bytes(65);
+        bytes32[] memory proof = new bytes32[](0);
+        vm.expectRevert(AndxEscrow.BadSignature.selector);
+        escrow.claimWithSig(auth, sig, proof);
+    }
+
+    function test_campaignIsolation() public {
+        bytes32 idA = _createUsdx(1_000_000, keccak256("iso-a"));
+        bytes32 idB = _createUsdx(2_000_000, keccak256("iso-b"));
+
+        (,,,, uint256 netB0, uint256 actB0,, uint256 claimedB0, uint256 refB0) = escrow.campaignState(idB);
+
+        // Propose+activate+claim only on A
+        bytes32 root = _leaf(idA, alice, 100_000);
+        bytes32[] memory ids = new bytes32[](1);
+        ids[0] = idA;
+        uint256[] memory committed = new uint256[](1);
+        committed[0] = 100_000;
+        vm.prank(operator);
+        escrow.proposeRoot(1, root, ids, committed);
+        vm.warp(block.timestamp + ROOT_DELAY);
+        escrow.activateRoot(1);
+
+        bytes32[] memory proof = new bytes32[](0);
+        IAndxEscrow.Claim memory c =
+            IAndxEscrow.Claim({campaignId: idA, creator: alice, cumulativeAmount: 100_000});
+        vm.prank(alice);
+        escrow.claim(c, alice, proof);
+
+        (,,,, uint256 netB1, uint256 actB1,, uint256 claimedB1, uint256 refB1) = escrow.campaignState(idB);
+        assertEq(netB1, netB0);
+        assertEq(actB1, actB0);
+        assertEq(claimedB1, claimedB0);
+        assertEq(refB1, refB0);
+        assertEq(escrow.claimedBy(idB, alice), 0);
+    }
 }
