@@ -1,0 +1,45 @@
+{
+  "note": "Cumulative amounts in token units (6 decimals). Only non-zero leaves are listed. A campaign's committed total for an epoch is the sum of its leaves.",
+  "epochs": [
+    { "epoch": 1, "leaves": [
+      { "campaign": "K1", "creator": "alice", "cumulative": "100000000" },
+      { "campaign": "K1", "creator": "bob",   "cumulative": "150000000" },
+      { "campaign": "K1", "creator": "carol", "cumulative": "50000000" },
+      { "campaign": "K2", "creator": "alice", "cumulative": "80000000" },
+      { "campaign": "K2", "creator": "bob",   "cumulative": "40000000" },
+      { "campaign": "K3", "creator": "alice", "cumulative": "120000000" },
+      { "campaign": "K3", "creator": "dave",  "cumulative": "60000000" }
+    ]},
+    { "epoch": 2, "leaves": [
+      { "campaign": "K1", "creator": "alice", "cumulative": "250000000" },
+      { "campaign": "K1", "creator": "bob",   "cumulative": "300000000" },
+      { "campaign": "K1", "creator": "carol", "cumulative": "50000000" },
+      { "campaign": "K1", "creator": "dave",  "cumulative": "100000000" },
+      { "campaign": "K2", "creator": "alice", "cumulative": "150000000" },
+      { "campaign": "K2", "creator": "bob",   "cumulative": "90000000" },
+      { "campaign": "K3", "creator": "alice", "cumulative": "200000000" },
+      { "campaign": "K3", "creator": "dave",  "cumulative": "90000000" }
+    ]},
+    { "epoch": 3, "leaves": [
+      { "campaign": "K1", "creator": "alice", "cumulative": "300000000" },
+      { "campaign": "K1", "creator": "bob",   "cumulative": "350000000" },
+      { "campaign": "K1", "creator": "carol", "cumulative": "50000000" },
+      { "campaign": "K1", "creator": "dave",  "cumulative": "200000000" },
+      { "campaign": "K2", "creator": "alice", "cumulative": "220000000" },
+      { "campaign": "K2", "creator": "bob",   "cumulative": "140000000" },
+      { "campaign": "K3", "creator": "alice", "cumulative": "200000000" },
+      { "campaign": "K3", "creator": "dave",  "cumulative": "90000000" }
+    ]},
+    { "epoch": 4, "leaves": [
+      { "campaign": "K1", "creator": "alice", "cumulative": "320000000" },
+      { "campaign": "K1", "creator": "bob",   "cumulative": "400000000" },
+      { "campaign": "K1", "creator": "carol", "cumulative": "80000000" },
+      { "campaign": "K1", "creator": "dave",  "cumulative": "200000000" },
+      { "campaign": "K2", "creator": "alice", "cumulative": "250000000" },
+      { "campaign": "K2", "creator": "bob",   "cumulative": "170000000" },
+      { "campaign": "K2", "creator": "carol", "cumulative": "60000000" },
+      { "campaign": "K3", "creator": "alice", "cumulative": "210000000" },
+      { "campaign": "K3", "creator": "dave",  "cumulative": "90000000" }
+    ]}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "andx-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "deploy": "tsx src/scripts/deploy.ts",
+    "seed": "tsx src/scripts/seed.ts",
+    "publish": "tsx src/scripts/publish.ts",
+    "claim-all": "tsx src/scripts/claim-all.ts",
+    "test": "tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "viem": "^2.21.54"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

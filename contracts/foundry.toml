@@ -1,0 +1,24 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib", "../lib"]
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+ffi = false
+fs_permissions = [{ access = "read", path = "./" }]
+
+[profile.default.fuzz]
+runs = 256
+
+[profile.default.invariant]
+runs = 256
+depth = 100
+fail_on_revert = false
+show_metrics = true
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = false

@@ -1,0 +1,9 @@
+{
+  "chainId": 31337,
+  "endTimeOffsetSeconds": 604800,
+  "campaigns": [
+    { "key": "K1", "brand": "nimbus",  "brandAccount": 5, "token": "USDX", "amount": "1000000000", "maxCommitPerEpoch": "400000000", "saltString": "nimbus-swaps" },
+    { "key": "K2", "brand": "arcadia", "brandAccount": 6, "token": "FOTX", "amount": "500000000",  "maxCommitPerEpoch": "120000000", "saltString": "arcadia-s4" },
+    { "key": "K3", "brand": "nimbus",  "brandAccount": 5, "token": "NRT",  "amount": "300000000",  "maxCommitPerEpoch": "270000000", "saltString": "nimbus-nrt" }
+  ]
+}

@@ -1,0 +1,28 @@
+
+*~
+app/coverage/
+app/dist/
+contracts/broadcast/
+contracts/cache/
+contracts/lib/
+contracts/out/
+.DS_Store
+.env
+.env.*
+!.env.example
+# Foundry
+.idea/
+# Local scratch
+*.log
+# Node
+node_modules/
+npm-debug.log*
+# OS / IDE
+# Secrets — never commit
+*.swp
+.temp/
+.tmp/
+token
+*.tsbuildinfo
+.vscode/
+web3-kit/

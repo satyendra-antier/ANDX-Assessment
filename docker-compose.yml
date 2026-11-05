@@ -1,0 +1,100 @@
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    entrypoint: ["anvil"]
+    command:
+      - "--host"
+      - "0.0.0.0"
+      - "--chain-id"
+      - "31337"
+      - "--block-time"
+      - "1"
+      - "--accounts"
+      - "15"
+      - "--port"
+      - "8545"
+      - "--mnemonic"
+      - "test test test test test test test test test test test junk"
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD", "cast", "block-number", "--rpc-url", "http://127.0.0.1:8545"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  chaos-primary:
+    image: node:20-alpine
+    working_dir: /chaos
+    volumes:
+      - ./chaos:/chaos:ro
+    environment:
+      UPSTREAM: http://anvil:8545
+      PORT: "9545"
+      LAG_BLOCKS: "0"
+      SEED: "1"
+    command: ["node", "chaos-proxy.mjs"]
+    ports:
+      - "9545:9545"
+    depends_on:
+      anvil:
+        condition: service_healthy
+
+  chaos-replica:
+    image: node:20-alpine
+    working_dir: /chaos
+    volumes:
+      - ./chaos:/chaos:ro
+    environment:
+      UPSTREAM: http://anvil:8545
+      PORT: "9546"
+      LAG_BLOCKS: "3"
+      SEED: "2"
+    command: ["node", "chaos-proxy.mjs"]
+    ports:
+      - "9546:9546"
+    depends_on:
+      anvil:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: andx
+      POSTGRES_USER: andx
+      POSTGRES_PASSWORD: andx
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./app/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U andx -d andx"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://andx:andx@postgres:5432/andx
+      RPC_URLS: http://chaos-primary:9545,http://chaos-replica:9546
+      DEPLOYMENTS_PATH: /deployments.json
+      CONFIRMATIONS: "6"
+      RELAYER_PRIVATE_KEY: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+      CHAIN_ID: "31337"
+    volumes:
+      - ./deployments.json:/deployments.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chaos-primary:
+        condition: service_started
+      chaos-replica:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
