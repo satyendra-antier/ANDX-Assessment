@@ -105,8 +105,25 @@ export class Indexer {
         const client = await this.pool.connect();
         try {
           await client.query("BEGIN");
+          // Drop every non-canonical row at/above the rewind point. PK is hash, so a
+          // height can otherwise keep an orphan hash alongside the new canonical one.
           await client.query(`DELETE FROM andx_events WHERE block_number > $1`, [n.toString()]);
           await client.query(`DELETE FROM andx_blocks WHERE number > $1`, [n.toString()]);
+          await client.query(
+            `DELETE FROM andx_events e
+             WHERE e.block_number <= $1
+               AND NOT EXISTS (
+                 SELECT 1 FROM andx_blocks b
+                 WHERE b.number = e.block_number AND b.hash = e.block_hash
+               )`,
+            [n.toString()],
+          );
+          // Ensure one canonical block row per height ≤ n matching chain tip ancestor
+          await client.query(
+            `DELETE FROM andx_blocks b
+             WHERE b.number = $1 AND b.hash <> $2`,
+            [n.toString(), lowerHex(db.rows[0].hash)],
+          );
           const finalized = n > CONFIRMATIONS ? n - CONFIRMATIONS : 0n;
           let finHash = "";
           if (finalized > 0n) {
@@ -164,6 +181,15 @@ export class Indexer {
     try {
       await client.query("BEGIN");
       for (const b of blocks) {
+        // Replace any stale row at this height (reorg) before inserting canonical hash.
+        await client.query(`DELETE FROM andx_events WHERE block_number = $1 AND block_hash <> $2`, [
+          b.number.toString(),
+          lowerHex(b.hash),
+        ]);
+        await client.query(`DELETE FROM andx_blocks WHERE number = $1 AND hash <> $2`, [
+          b.number.toString(),
+          lowerHex(b.hash),
+        ]);
         await client.query(
           `INSERT INTO andx_blocks(number, hash, parent_hash) VALUES ($1,$2,$3)
            ON CONFLICT (hash) DO NOTHING`,
@@ -250,10 +276,14 @@ export class Indexer {
 
   private async recomputeCampaignState(client: pg.PoolClient, finalizedBlock: bigint) {
     await client.query(`DELETE FROM andx_campaign_state`);
+    // Only events whose block_hash is the canonical hash stored for that height.
     const { rows } = await client.query(
-      `SELECT event_name, campaign_id, args FROM andx_events
-       WHERE finalized = true AND block_number <= $1
-       ORDER BY block_number ASC, log_index ASC`,
+      `SELECT e.event_name, e.campaign_id, e.args
+       FROM andx_events e
+       INNER JOIN andx_blocks b
+         ON b.number = e.block_number AND b.hash = e.block_hash
+       WHERE e.finalized = true AND e.block_number <= $1
+       ORDER BY e.block_number ASC, e.log_index ASC`,
       [finalizedBlock.toString()],
     );
 
